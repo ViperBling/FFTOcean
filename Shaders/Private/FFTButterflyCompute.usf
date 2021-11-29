@@ -1,0 +1,65 @@
+﻿#include "/Engine/Private/Common.ush"
+
+int Step;
+int Dir;
+
+float2 mult(in float2 c0, in float2 c1)
+{
+	float2 c;
+	c.x = c0.x * c1.x - c0.y * c1.y;
+	c.y = c0.x * c1.y + c0.y * c1.x;
+	return c;
+}
+
+float2 add(in float2 c0, in float2 c1)
+{
+	float2 c;
+	c.x = c0.x + c1.x;
+	c.y = c0.y + c1.y;
+	return c;
+}
+
+Texture2D<float4> TwiddleSRV;		// Twiddle factors/indices texture
+Texture2D<float4> InputSRV;			// previous pass data
+RWTexture2D<float4> OutputUAV;		// output surface
+
+void HorizontalButterfly(in uint2 AbsoluteThreadId)
+{
+	float4 data = TwiddleSRV.Load(int3(Step, AbsoluteThreadId.x, 0)).xyzw;
+	float2 p_ = InputSRV.Load(int3(data.z, AbsoluteThreadId.y, 0)).xy;
+	float2 q_ = InputSRV.Load(int3(data.w, AbsoluteThreadId.y, 0)).xy;
+	float2 w_ = data.xy;
+
+	//Butterfly operation
+	float2 H = add(p_, mult(w_, q_));
+
+	OutputUAV[AbsoluteThreadId] = float4(H, 0, 0);
+}
+
+void VerticalButterfly(in uint2 AbsoluteThreadId)
+{
+	float4 data = TwiddleSRV.Load(int3(Step, AbsoluteThreadId.y, 0)).xyzw;
+	float2 p_ = InputSRV.Load(int3(AbsoluteThreadId.x, data.z, 0)).xy;
+	float2 q_ = InputSRV.Load(int3(AbsoluteThreadId.x, data.w, 0)).xy;
+	float2 w_ = data.xy;
+
+	//Butterfly operation
+	float2 H = add(p_, mult(w_, q_));
+
+	OutputUAV[AbsoluteThreadId] = float4(H, 0, 0);
+}
+
+//Butterfly Kernel 
+[numthreads(32, 32, 1)]
+void ComputeButterflyCS(uint3 GlobalThreadIndex : SV_DispatchThreadID)
+{
+	[branch]
+	if (Dir == 0)
+	{
+		HorizontalButterfly(GlobalThreadIndex.xy);
+	}
+	else
+	{
+		VerticalButterfly(GlobalThreadIndex.xy);
+	}
+}

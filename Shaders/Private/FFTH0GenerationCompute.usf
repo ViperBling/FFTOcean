@@ -1,0 +1,79 @@
+﻿#include "/Engine/Private/Common.ush"
+
+#define PI       3.1415926536f
+#define TWOPI    (2.f*PI)
+#define HALF_SQRT_2	0.7071068f
+
+#define GRAVITY 981.0f;
+
+Texture2D <float4> InputNoiseTexture; // guassian random texture generated.
+RWTexture2D<float4> OutputSurface;
+
+float WaveAmplitude;		// A
+float WindScale;			// windDependency
+float WindSpeed;
+float2 WindDirection;		// W
+float2 OceanSizeLxLz;		// LxLz
+float Size;
+
+float2 GetK(in float2 pos)
+{
+	float2 k;
+	k = pos * TWOPI / OceanSizeLxLz; 
+	return k;
+}
+
+float GetPhilipsSpectrum(in float2 k)
+{
+	float A = WaveAmplitude;
+	float V = WindSpeed;
+	float2 W = WindDirection;
+
+	float L = (V * V) / GRAVITY;
+	float l = 0.0001f;
+
+	float K2 = dot(k, k);
+	// float K2 = K * K;
+
+	float result = 0.0f;
+	if (K2 > 0.0f)
+	{
+		float K4 = K2 * K2;
+		float2 Wn = normalize(W);
+		float2 Kn = normalize(k);
+		float KoW = dot(Kn, Wn);
+		float KL2 = K2 * L * L;
+		float expTerm = A * exp(-1. / KL2);
+
+		// float Ph_k = (expTerm / K4) * (KoW * KoW);
+		float Ph_k = (expTerm / K4) * Pow2(KoW);
+		if (KoW < 0.0f)
+		{
+			Ph_k *= WindScale;
+		}
+		result = Ph_k * exp(-K2 * l * l);
+	}
+	
+	return result;
+}
+
+[numthreads(32, 32, 1)]
+void ComputeH0CS(uint3 ThreadId : SV_DispatchThreadID)
+{
+	float2 pos = ThreadId.xy;
+	// float2 P = (ThreadId.xy - Size) / 2.0; 
+	float2 K = GetK(pos);
+	float4 GaussRand = InputNoiseTexture.Load(int3(ThreadId.xy, 0));
+
+	// float Ph_k = clamp(sqrt(GetPhilipsSpectrum(K)), -40000, 40000);
+	// float Ph_km = clamp(sqrt(GetPhilipsSpectrum(-K)), -40000, 40000);
+
+	float Ph_k = sqrt(GetPhilipsSpectrum(K));
+	float Ph_km = sqrt(GetPhilipsSpectrum(-K));
+
+	float2 H0K = Ph_k * GaussRand.xy * HALF_SQRT_2;
+	float2 H0mK = Ph_km * GaussRand.zw * HALF_SQRT_2;
+	H0mK.y *= -1.0f;
+	
+	OutputSurface[ThreadId.xy] = float4(H0K, H0mK);
+}

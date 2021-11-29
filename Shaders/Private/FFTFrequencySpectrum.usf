@@ -1,0 +1,121 @@
+﻿#include "/Engine/Private/Common.ush"
+
+#define PI       3.1415926536f
+#define TWOPI    (2.f*PI)
+#define HALF_SQRT_2	0.7071068f
+#define GRAVITY  981.f
+
+Texture2D<float4> InputH0SRV;
+RWTexture2D<float2> OutSurfaceX;
+RWTexture2D<float2> OutSurfaceY;
+RWTexture2D<float2> OutSurfaceZ;
+
+RWTexture2D<float2> OutDHxKt;
+RWTexture2D<float2> OutDHzKt;
+
+RWTexture2D<float2> OutDxz;
+RWTexture2D<float2> OutDxx;
+RWTexture2D<float2> OutDzz;
+
+float Time;
+float Choppyness;
+float Size;
+float2 OceanSizeLxLz;
+
+float2 GetK(in float2 pos)
+{
+	float2 K;
+	K = pos * TWOPI / OceanSizeLxLz;
+	return K;
+}
+
+float2 ComplexMult(float2 c1, float2 c2)
+{
+	return float2(
+		c1.x * c2.x - c1.y * c2.y,
+		c1.x * c2.y + c1.y * c2.x
+	);
+}
+
+float2 ComplexAdd(float2 c1, float2 c2)
+{
+	return float2(c1.x + c2.x, c1.y + c2.y);
+}
+
+[numthreads(32, 32, 1)]
+void ComputeFrequencyCS(uint3 ThreadId : SV_DispatchThreadID)
+{
+	float2 pos = ThreadId.xy;
+	
+	float4 H0k_H0mK = InputH0SRV.Load(int3(pos, 0));
+
+	float2 K = GetK(pos);
+	
+	const float2 H0k = H0k_H0mK.xy;
+	const float2 H0mK = H0k_H0mK.zw;
+
+	// Dispersion 角频率和k之间的关系
+	float omega = sqrt(GRAVITY * length(K));
+
+	// 同时计算sin和cos
+	float sinV, cosV;
+	// sincos(omega * Time, sinV, cosV);
+	sinV = sin(omega * Time);
+	cosV = cos(omega * Time);
+	
+	// 用欧拉公式转换成三角函数计算
+	float2 HKt;
+	// HKt.x = (H0k.x + H0mK.x) * cosV - (H0k.y + H0mK.y) * sinV;
+	// HKt.y = (H0k.x - H0mK.x) * sinV + (H0k.y - H0mK.y) * cosV;
+
+	HKt = ComplexAdd(ComplexMult(H0k, float2(cosV, sinV)), ComplexMult(H0mK, float2(cosV, -sinV)));
+	// float2 iHkt = float2(-HKt.y, HKt.x);
+	
+	float K2 = dot(K, K);
+	float InvSqrtK = 0;
+	if (K2 > 1e-12f)
+	{
+		InvSqrtK = 1 / sqrt(K2);
+	}
+	float2 Knorm = K * InvSqrtK;
+
+	// float2 DxKt = float2(HKt.y * Knorm.x, -HKt.x * Knorm.x);
+	// float2 DzKt = float2(HKt.y * Knorm.y, -HKt.x * Knorm.y);
+	
+	// float2 DHxKt = float2(HKt.y * K.x, HKt.x * K.x);
+	// float2 DHzKt = float2(HKt.y * K.y, HKt.x * K.y);
+	
+	float2 DxKt = Choppyness * ComplexMult(float2(0, K.x * InvSqrtK), HKt);
+	float2 DzKt = Choppyness * ComplexMult(float2(0, -K.y * InvSqrtK), HKt);
+	
+	float2 DHxKt = ComplexMult(float2(0, K.x), HKt);
+	float2 DHzKt = ComplexMult(float2(0, K.y), HKt);
+
+	float2 Dxz = ComplexMult(float2(K.x * K.y * InvSqrtK, 0), HKt);
+	float2 Dxx = ComplexMult(float2(K.x * K.x * InvSqrtK, 0), HKt);
+	float2 Dzz = ComplexMult(float2(K.y * K.y * InvSqrtK, 0), HKt);
+	
+	// 水平偏移
+	// float2 DxKt = iHkt * K.x * InvSqrtK;
+	// float2 DzKt = -iHkt * K.y * InvSqrtK;
+	//
+	// // 高度导数
+	// float2 DHxKt = iHkt * K.x;
+	// float2 DHzKt = iHkt * K.y;
+	// 	
+	// float2 Dxx = -HKt * K.x * K.x * InvSqrtK;
+	// float2 Dzz = -HKt * K.y * K.y * InvSqrtK;
+	// float2 Dxz = -HKt * K.x * K.y * InvSqrtK;
+	
+	OutSurfaceX[pos] = DxKt;
+	OutSurfaceY[pos] = HKt;
+	OutSurfaceZ[pos] = DzKt;
+
+	OutDHxKt[pos] = DHxKt;
+	OutDHzKt[pos] = DHzKt;
+
+	OutDxz[pos] = Dxz;
+	OutDxx[pos] = Dxx;
+	OutDzz[pos] = Dzz;
+}
+

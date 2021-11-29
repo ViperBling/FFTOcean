@@ -1,0 +1,123 @@
+#include "/Engine/Private/Common.ush"
+
+float Size;
+float Choppyness;
+float Time;
+float NormalStrength;
+float2 OceanSize_LxLz;
+
+// Texture2D<float4> InputTurb;
+Texture2D<float4> InputDx;
+Texture2D<float4> InputDy;
+Texture2D<float4> InputDz;
+Texture2D<float4> InputDHxKt;
+Texture2D<float4> InputDHzKt;
+Texture2D<float4> InputDxz;
+Texture2D<float4> InputDxx;
+Texture2D<float4> InputDzz;
+
+RWTexture2D<float4> OutDisplacement;
+RWTexture2D<float4> OutDerivatives;
+RWTexture2D<float4> OutTurbulence;
+
+SamplerState LinearSampler;
+
+float SampleTex(in Texture2D<float4> Tex, in float2 uv)
+{
+	return Tex.SampleLevel(LinearSampler, uv, 0).x / Pow2(Size);
+}
+
+float4 GetFoldAndTurbulence(in float2 texCoord)
+{
+	float Dxz = InputDxz.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	float Dxx = InputDxx.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	float Dzz = InputDzz.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	float Lambda = 4.;
+	//float Jacobian = (1 + Choppyness * Dxx) * (1 + Choppyness * Dzz) - Choppyness * Choppyness * Pow2(Dxz);
+	float Jacobian = (1 + Lambda * Dxx) * (1 + Lambda * Dzz) - Lambda * Lambda * Dxz * Dxz;
+	float Fold = max(Jacobian - 1., 0.0);
+	return float4(Dxz, Dxx, Dzz, Fold);
+
+	// const float texelSize = 1.0f / Size;
+	//
+	// float2 r = float2(SampleTex(InputDx, texCoord + float2(texelSize, 0)), SampleTex(InputDz, texCoord + float2(texelSize, 0)));
+	// float2 l = float2(SampleTex(InputDx, texCoord + float2(-texelSize, 0)), SampleTex(InputDz, texCoord + float2(-texelSize, 0)));
+	// float2 t = float2(SampleTex(InputDx, texCoord + float2(0, -texelSize)), SampleTex(InputDz, texCoord + float2(0, -texelSize)));
+	// float2 b = float2(SampleTex(InputDx, texCoord + float2(0, texelSize)), SampleTex(InputDz, texCoord + float2(0, texelSize)));
+	//
+	// float2 Dx = l - r;
+	// float2 Dz = t - b;
+	// float Lambda = Choppyness * Size / OceanSize_LxLz.x;
+	// float Jacobian = (1.0 + Lambda * Dx.x) * (1.0 + Lambda * Dz.y) - Lambda * Lambda * Dx.y * Dz.x;
+	//
+	// float Fold = max(Jacobian - 1., 0.0);
+	// return float4(Dx.y, Dx.x, Dz.y, Fold);
+}
+
+[numthreads(32, 32, 1)]
+void MainCS(uint3 ThreadID : SV_DispatchThreadID)
+{
+	float2 pos = ThreadID.xy;
+	float2 texCoord = pos / Size;
+	float3 N;
+	const float texelSize = 1.0f / Size;
+	
+	float r = InputDy.SampleLevel(LinearSampler, texCoord + float2(texelSize, 0), 0) / Pow2(Size);
+	float l = InputDy.SampleLevel(LinearSampler, texCoord + float2(-texelSize, 0), 0) / Pow2(Size);
+	float t = InputDy.SampleLevel(LinearSampler, texCoord + float2(0, -texelSize), 0) / Pow2(Size);
+	float b = InputDy.SampleLevel(LinearSampler, texCoord + float2(0, texelSize), 0) / Pow2(Size);
+	
+	float dx = r - l;
+	float dy = b - t;
+	
+	// float2 Nxy = float2(-dx, -dy);
+	// float Nz = sqrt(saturate(1.0 - dot(Nxy, Nxy)));
+	
+	N =  normalize(float3(-dx, dy, 1.0f / NormalStrength));
+	// N = normalize(float3(Nxy, Nz));
+	
+	// float Dx = InputDx.Load(int3(pos, 0)) / Pow2(Size);
+	// float Dy = InputDy.Load(int3(pos, 0)) / Pow2(Size);
+	// float Dz = InputDz.Load(int3(pos, 0)) / Pow2(Size);
+	
+	float Dx = InputDx.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	float Dy = InputDy.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	float Dz = InputDz.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	
+	// float DHxKt = InputDHxKt.Load(int3(pos, 0)) / (Size * Size);
+	// float DHzKt = InputDHzKt.Load(int3(pos, 0)) / (Size * Size);
+
+	// float DHxKt = InputDHxKt.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	// float DHzKt = InputDHzKt.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	
+	// float Dxz = InputDxz.Load(int3(pos, 0)) / Pow2(Size);
+	// float Dxx = InputDxx.Load(int3(pos, 0)) / Pow2(Size);
+	// float Dzz = InputDzz.Load(int3(pos, 0)) / Pow2(Size);
+	//
+	// float Dxz = InputDxz.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	// float Dxx = InputDxx.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	// float Dzz = InputDzz.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	
+	// N = normalize(float3(-DHxKt, -DHzKt, 1.));
+	// float3 T = normalize(float3(0, Dxz, DHzKt));
+	// float3 B = normalize(float3(Dxz, 0, DHxKt));
+	//
+	// float3x3 TBN = transpose(float3x3(
+	// 	B.x, T.x, N.x,
+	// 	B.y, T.y, N.y,
+	// 	B.z, T.z, N.z
+	// ));
+	//
+	// N = normalize(float3(DHxKt / (1 + Pow2(DHxKt)), DHzKt / (1 + Pow2(DHzKt)), 1. / NormalStrength));
+	// N = normalize(TransformWorldVectorToTangent(TBN, N));
+	// N = normalize(cross(B, T ));
+	// N = normalize(float3(DHxKt, DHzKt, 1. / NormalStrength));
+	
+	OutDisplacement[pos] = float4(Dx, Dz, Dy, 1.);
+	
+	float4 FoldAndTurbulence = GetFoldAndTurbulence(texCoord);
+	
+	OutDerivatives[pos] = float4(N, FoldAndTurbulence.w);
+	
+	OutTurbulence[pos] = float4(FoldAndTurbulence.xyz, 1.);
+}

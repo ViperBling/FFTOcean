@@ -1,0 +1,115 @@
+﻿#include "/Engine/Private/Common.ush"
+
+#define PI       3.1415926536f
+#define TWOPI    (2.f*PI)
+
+SamplerState LinearSampler : register(s0);
+Texture2D<float4> InputTextureX;
+Texture2D<float4> InputTextureY;
+Texture2D<float4> InputTextureZ;
+
+Texture2D<float4> InputDHxKt;
+Texture2D<float4> InputDHzKt;
+
+Texture2D<float4> InputDxzKt;
+Texture2D<float4> InputDxxKt;
+Texture2D<float4> InputDzzKt;
+
+float2 OceanSizeLxLz;		// Ocean Size
+float Size;					// RTSize
+float Choppyness;
+float NormalStrength;
+
+void MainVertexShader(
+	float4 InPosition : ATTRIBUTE0,
+	float2 InUV : ATTRIBUTE1,
+	out float2 OutUV : TEXCOORD0,
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	OutPosition = InPosition;
+	OutUV = InUV;
+}
+
+float2 GetK(in float2 pos)
+{
+	float2 k;
+	k = pos * TWOPI / OceanSizeLxLz; 
+	return k;
+}
+
+float SampleTexture(in Texture2D<float4> HMap, float2 uv)
+{
+	float InvSqrDim = 1.0 / (Size * Size);
+	// return HMap.Sample(LinearSampler,uv).x * INV_SQR_DIM;
+	return HMap.Sample(LinearSampler, uv).x * InvSqrDim;
+}
+
+// Bubble
+//Here we compute the Jacobian correlation as outlined in the paper from Jerry Tessendorf - "Simulating Ocean Water" - http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.161.9102&rep=rep1&type=pdf
+float CalculateFolding(in Texture2D<float4> DXTexture,in Texture2D<float4> DZTexture,in float2 texCoord)
+{
+	// const float  texelSize = 1.0f / Size;
+	// const float GridLength = Size / OceanSizeLxLz.x;
+	//
+	// float2 r = float2(SampleTexture(DXTexture, texCoord + float2(texelSize, 0)), SampleTexture(DZTexture, texCoord + float2(texelSize, 0)));
+	// float2 l = float2(SampleTexture(DXTexture, texCoord + float2(-texelSize, 0)), SampleTexture(DZTexture, texCoord + float2(-texelSize, 0)));
+	// float2 t = float2(SampleTexture(DXTexture, texCoord + float2(0, -texelSize)), SampleTexture(DZTexture, texCoord + float2(0, -texelSize)));
+	// float2 b = float2(SampleTexture(DXTexture, texCoord + float2(0, texelSize)), SampleTexture(DZTexture, texCoord + float2(0, texelSize)));
+	//
+	// float2 Dx = (l.xy - r.xy) * Choppyness * GridLength;
+	// float2 Dy = (t.xy - b.xy) * Choppyness * GridLength;
+	// float J = (1.0f + Dx.x) * (1.0f + Dy.y) - Dx.y * Dy.x;
+	//
+	// float fold = saturate(max(1.0f - saturate(J), 0.0f));
+
+	float Dxz = SampleTexture(InputDxzKt, texCoord);
+	float Dxx = SampleTexture(InputDxxKt, texCoord);
+	float Dzz = SampleTexture(InputDzzKt, texCoord);
+
+	float Jacobian = (1 + Choppyness * Dxx) * (1 + Choppyness * Dzz) - Choppyness * Choppyness * Dxz * Dxz;
+	float fold = saturate(max(1.0 - saturate(Jacobian), 0.0f));
+	
+	return fold;
+}
+
+float4 CalculateNormalAndFolding(
+	in Texture2D<float4> DYTexture,
+	in Texture2D<float4> DXTexture,
+	in Texture2D<float4> DZTexture,
+	in float2 texCoord,
+	in float normalStrength )
+{
+	// const float  texelSize = 1.0f / 10000.f;	
+	//
+	// float r = SampleTexture(DYTexture, texCoord + float2(texelSize, 0));
+	// float l = SampleTexture(DYTexture, texCoord + float2(-texelSize, 0));
+	// float t = SampleTexture(DYTexture, texCoord + float2(0, -texelSize));
+	// float b = SampleTexture(DYTexture, texCoord + float2(0, texelSize));
+	//
+	// float dx = l - r;
+	// float dy = t - b;
+	//
+	// float3 N =  normalize(float3(-dx, 1.0f / normalStrength, -dy));  
+	
+	float DHxKt = SampleTexture(InputDHxKt, texCoord);
+	float DHzKt = SampleTexture(InputDHzKt, texCoord);
+	float Dxz = SampleTexture(InputDxzKt, texCoord);
+	float Dxx = SampleTexture(InputDxxKt, texCoord);
+	float Dzz = SampleTexture(InputDzzKt, texCoord);
+
+	float Jacobian = (1 + Choppyness * Dxx) * (1 + Choppyness * Dzz) - Choppyness * Choppyness * Dxz * Dxz;
+	float fold = saturate(max(1.0 - saturate(Jacobian), 0.0f));
+
+	float3 N = normalize(float3(-DHxKt, 1. / normalStrength, -DHzKt));
+	
+	return float4(N.xzy, fold);
+}
+
+void NormalAndFoldingMain(
+	in float2 uv : TEXCOORD0,
+	out float4 OutColor : SV_Target0
+	)
+{   
+    OutColor = CalculateNormalAndFolding(InputTextureY, InputTextureX, InputTextureZ, uv, NormalStrength);
+}
