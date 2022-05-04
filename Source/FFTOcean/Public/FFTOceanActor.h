@@ -78,5 +78,7 @@ protected:
 	// FRenderFFTPassParams FFTPassParams;
 
 	//Gaussian noise shader resource view
+	TAtomic<bool> bIsGaussianInitialized;
+	FTexture2DRHIRef GaussianNoiseRHI;
 	FShaderResourceViewRHIRef GaussianNoiseSRV;
 };

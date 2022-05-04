@@ -6,13 +6,16 @@ AFFTOcean::AFFTOcean()
 	PrimaryActorTick.bCanEverTick = true;
 	// PrimaryActorTick.bStartWithTickEnabled = true;
 	
-	ConstructGaussianNoise();
-	CopyGaussianNoiseTextureToResourceViewOnce();
+	bIsGaussianInitialized = false;
 }
 
 void AFFTOcean::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	ConstructGaussianNoise();
+	CopyGaussianNoiseTextureToResourceViewOnce();
+	
 	FShaderDeclarationModule::Get("ShaderDeclaration").BeginRendering();
 }
 
@@ -32,64 +35,73 @@ void AFFTOcean::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 
 	TotalElaspedTime += DeltaSeconds * TimeFactor;
-	
-	FRenderFFTPassParams FFTPassParams = FRenderFFTPassParams();
-	
-	FFTPassParams.H0Params = FShaderH0Pass(
-		GaussianNoiseSRV,
-		WindDirection,
-		OceanSizeLxLz,
-		WaveAmplitude,
-		WindScale,
-		WindSpeed,
-		RTSize
-	);
-	
-	FFTPassParams.FrequencyParams = FShaderFrequencyParameters(
-		TotalElaspedTime,
-		WaveChoppyness,
-		OceanSizeLxLz,
-		RTSize);
-	
-	FFTPassParams.TwiddleFactorParams = FShaderTwiddleFactorParameters(RTSize);
-	
-	FFTPassParams.ButterflyParamsX = FShaderIFFTButterflyParameters(RTSize);
-	FFTPassParams.ButterflyParamsY = FShaderIFFTButterflyParameters(RTSize);
-	FFTPassParams.ButterflyParamsZ = FShaderIFFTButterflyParameters(RTSize);
 
-	FFTPassParams.ButterflyParamsDHxKt = FShaderIFFTButterflyParameters(RTSize);
-	FFTPassParams.ButterflyParamsDHzKt = FShaderIFFTButterflyParameters(RTSize);
-
-	FFTPassParams.ButterflyParamsDxz = FShaderIFFTButterflyParameters(RTSize);
-	FFTPassParams.ButterflyParamsDxx = FShaderIFFTButterflyParameters(RTSize);
-	FFTPassParams.ButterflyParamsDzz = FShaderIFFTButterflyParameters(RTSize);
-
-	FFTPassParams.FinalWavesParams = FShaderFinalWavesParameters(RTSize, TotalElaspedTime, WaveChoppyness, NormalStrength, OceanSizeLxLz);
-
-	if (FFTPassParams.DisplacementRT == nullptr)
+	ENQUEUE_RENDER_COMMAND(OceanRenderer)(
+	[this](FRHICommandListImmediate& RHICmdList)
 	{
-		FFTPassParams.DisplacementRT = DisplacementRT;
-	}
+		FRenderFFTPassParams FFTPassParams = FRenderFFTPassParams();
+
+		if (bIsGaussianInitialized)
+		{
+			FFTPassParams.H0Params = FShaderH0Pass(
+				GaussianNoiseSRV,
+				WindDirection,
+				OceanSizeLxLz,
+				WaveAmplitude,
+				WindScale,
+				WindSpeed,
+				RTSize
+			);
+		}
+		
+		
+		FFTPassParams.FrequencyParams = FShaderFrequencyParameters(
+			TotalElaspedTime,
+			WaveChoppyness,
+			OceanSizeLxLz,
+			RTSize);
+		
+		FFTPassParams.TwiddleFactorParams = FShaderTwiddleFactorParameters(RTSize);
+		
+		FFTPassParams.ButterflyParamsX = FShaderIFFTButterflyParameters(RTSize);
+		FFTPassParams.ButterflyParamsY = FShaderIFFTButterflyParameters(RTSize);
+		FFTPassParams.ButterflyParamsZ = FShaderIFFTButterflyParameters(RTSize);
+
+		FFTPassParams.ButterflyParamsDHxKt = FShaderIFFTButterflyParameters(RTSize);
+		FFTPassParams.ButterflyParamsDHzKt = FShaderIFFTButterflyParameters(RTSize);
+
+		FFTPassParams.ButterflyParamsDxz = FShaderIFFTButterflyParameters(RTSize);
+		FFTPassParams.ButterflyParamsDxx = FShaderIFFTButterflyParameters(RTSize);
+		FFTPassParams.ButterflyParamsDzz = FShaderIFFTButterflyParameters(RTSize);
+
+		FFTPassParams.FinalWavesParams = FShaderFinalWavesParameters(RTSize, TotalElaspedTime, WaveChoppyness, NormalStrength, OceanSizeLxLz);
+
+		if (FFTPassParams.DisplacementRT == nullptr)
+		{
+			FFTPassParams.DisplacementRT = DisplacementRT;
+		}
+		
+		if (FFTPassParams.DerivativesRT == nullptr)
+		{
+			FFTPassParams.DerivativesRT = DerivativesRT;
+		}
+
+		if (FFTPassParams.TurbulenceRT == nullptr)
+		{
+			FFTPassParams.TurbulenceRT = TurbulenceRT;
+		}
+		
+		if (FFTPassParams.DebugRT == nullptr)
+		{
+			FFTPassParams.DebugRT = Debug_RT;
+		}
+		
+		if (FShaderDeclarationModule::IsAvailable("ShaderDeclaration"))
+		{
+			FShaderDeclarationModule::Get("ShaderDeclaration").UpdateParameters("Pass", FFTPassParams);
+		}
+		});
 	
-	if (FFTPassParams.DerivativesRT == nullptr)
-	{
-		FFTPassParams.DerivativesRT = DerivativesRT;
-	}
-
-	if (FFTPassParams.TurbulenceRT == nullptr)
-	{
-		FFTPassParams.TurbulenceRT = TurbulenceRT;
-	}
-	
-	if (FFTPassParams.DebugRT == nullptr)
-	{
-		FFTPassParams.DebugRT = Debug_RT;
-	}
-	
-	if (FShaderDeclarationModule::IsAvailable("ShaderDeclaration"))
-	{
-		FShaderDeclarationModule::Get("ShaderDeclaration").UpdateParameters("Pass", FFTPassParams);
-	}
 }
 
 static float GetGaussianRandomFloat()
@@ -105,25 +117,34 @@ static float GetGaussianRandomFloat()
 
 void AFFTOcean::ConstructGaussianNoise()
 {
-	// GaussianNoise 随机生成 512x512 个像素点 对应顶点信息
-	uint32 resolution = RTSize * RTSize;
-	TArray<FVector4> rawData;
-	rawData.SetNumZeroed(resolution);
-	for (uint32 i = 0; i < resolution; i++)
-	{
-		rawData[i].X = GetGaussianRandomFloat();
-		rawData[i].Y = GetGaussianRandomFloat();
-		rawData[i].Z = GetGaussianRandomFloat();
-		rawData[i].W = GetGaussianRandomFloat();
-	}
+	ENQUEUE_RENDER_COMMAND(GaussianNoiseConstruct)(
+		[this](FRHICommandListImmediate& RHICmdList)
+		{
+			// GaussianNoise 随机生成 512x512 个像素点 对应顶点信息
+			uint32 resolution = RTSize * RTSize;
+			float rawData[resolution * 4];
+			// rawData.SetNumZeroed(resolution * 4);
+			for (uint32 i = 0; i < resolution * 4; i++)
+			{
+				rawData[i] = GetGaussianRandomFloat();
+			}
 
-	GaussianNoise = UTexture2D::CreateTransient(RTSize, RTSize, PF_A32B32G32R32F);
-	GaussianNoise->UpdateResource();
-	FTexture2DMipMap& mip = GaussianNoise->PlatformData->Mips[0];
-	void* data = mip.BulkData.Lock(LOCK_READ_WRITE);
-	FMemory::Memcpy(data, rawData.GetData(), resolution * 4 * sizeof(float));
-	mip.BulkData.Unlock();
-	GaussianNoise->UpdateResource();
+			FRHIResourceCreateInfo CreateInfo(TEXT("CreateGaussianNoise"));
+
+			GaussianNoiseRHI = RHICreateTexture2D(
+				RTSize, RTSize, PF_A32B32G32R32F, 1, 1, TexCreate_ShaderResource, CreateInfo);
+
+			FUpdateTextureRegion2D UpdateTextureRegion2D = FUpdateTextureRegion2D(0, 0, 0, 0, RTSize, RTSize);
+
+			RHICmdList.UpdateTexture2D(
+				GaussianNoiseRHI, 0, UpdateTextureRegion2D,
+				GPixelFormats[GaussianNoiseRHI->GetFormat()].BlockBytes * RTSize,
+				reinterpret_cast<uint8*>(rawData));
+			
+			GaussianNoiseSRV = RHICreateShaderResourceView(GaussianNoiseRHI, 0);
+
+			bIsGaussianInitialized = true;
+		});
 }
 
 void AFFTOcean::CopyGaussianNoiseTextureToResourceViewOnce()

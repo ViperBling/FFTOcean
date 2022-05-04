@@ -7,12 +7,8 @@
 class FShaderIFFTButterflyParameters
 {
 public:
-	// FTextureRHIRef SurfaceTexture;
-	// FUnorderedAccessViewRHIRef SurfaceTextureUAV;
-	// FShaderResourceViewRHIRef SurfaceTextureSRV;
 
 	float mSize;
-	// int mPingPongIdx = 0;
 	
 	FShaderIFFTButterflyParameters(){}
 
@@ -20,15 +16,6 @@ public:
 	{
 		CachedRenderTargetSize = FIntPoint(TextureSize, TextureSize);
 		mSize = TextureSize;
-		
-		// FRHIResourceCreateInfo CreateInfo;
-		
-		// SurfaceTexture = RHICreateTexture2D(
-		// 	TextureSize, TextureSize,
-		// 	PF_A32B32G32R32F, 1, 1,
-		// 	TexCreate_ShaderResource | TexCreate_UAV, CreateInfo);
-		// SurfaceTextureUAV = RHICreateUnorderedAccessView(SurfaceTexture);
-		// SurfaceTextureSRV = RHICreateShaderResourceView(SurfaceTexture, 0);
 	}
 private:
 	

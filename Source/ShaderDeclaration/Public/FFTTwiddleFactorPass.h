@@ -18,7 +18,7 @@ public:
 	FShaderTwiddleFactorParameters(float Size)
 	{
 		mSize = Size;
-		FRHIResourceCreateInfo CreateInfo;
+		FRHIResourceCreateInfo CreateInfo(TEXT("TwiddleCreateInfo"));
 
 		float logSize = (int)FMath::Log2(Size);
 

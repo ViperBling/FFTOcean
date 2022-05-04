@@ -64,7 +64,7 @@ public:
 		
 		GaussianNoiseInputSRV = InGaussianNoiseInput;
 
-		FRHIResourceCreateInfo CreateInfo;
+		FRHIResourceCreateInfo CreateInfo(TEXT("H0PassCreateInfo"));
 		OutputH0K = RHICreateTexture2D(
 			TextureSize, TextureSize,
 			PF_A32B32G32R32F, 1, 1,

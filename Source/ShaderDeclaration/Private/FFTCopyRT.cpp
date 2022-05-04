@@ -26,7 +26,7 @@ public:
 		Vertices[3].UV = FVector2D(0, 0);
 
 		// Create vertex buffer. Fill buffer with initial data upon creation
-		FRHIResourceCreateInfo CreateInfo(&Vertices);
+		FRHIResourceCreateInfo CreateInfo(TEXT("VertexBufferCreateInfo"), &Vertices);
 		VertexBufferRHI = RHICreateVertexBuffer(Vertices.GetResourceDataSize(), BUF_Static, CreateInfo);
 	}
 };

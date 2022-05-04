@@ -38,7 +38,7 @@ public:
 		mNormalStrength = NormalStrength;
 		mOceanSizeLxLz = OceanSize_LxLz;
 
-		FRHIResourceCreateInfo CreateInfo;
+		FRHIResourceCreateInfo CreateInfo(TEXT("FinalWaveCreateInfo"));
 		
 		OutDisplacement = RHICreateTexture2D(
 			TextureSize, TextureSize,

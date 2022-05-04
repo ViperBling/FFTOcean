@@ -59,7 +59,7 @@ public:
 		mOceanSizeLxLz = OceanSizeLxLz;
 		mWorldTimeSeconds = Time;
 
-		FRHIResourceCreateInfo CreateInfo;
+		FRHIResourceCreateInfo CreateInfo(TEXT("FrequencyCreateInfo"));
 		
 		OutSurfaceX = RHICreateTexture2D(
 			TextureSize, TextureSize,
