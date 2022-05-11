@@ -16,6 +16,7 @@ void MainVS(
 // PIXEL SHADER
 
 Texture2D<float4> InputTexture;
+SamplerState CopyRTSampler;
 
 void MainPS(
 	in float2 uv : TEXCOORD0,

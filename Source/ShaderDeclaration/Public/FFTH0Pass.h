@@ -31,8 +31,8 @@ public:
 	float mWindScale;
 	float mWindSpeed;
 	float mSize;
-	FVector2D mWindDirection;
-	FVector2D mOceanSizeLxLz;
+	FVector2f mWindDirection;
+	FVector2f mOceanSizeLxLz;
 
 	
 	FIntPoint GetRenderTargetSize() const
@@ -55,8 +55,8 @@ public:
 	{
 		CachedRenderTargetSize = FIntPoint(TextureSize, TextureSize);
 		
-		mWindDirection = WindDireciton;
-		mOceanSizeLxLz = OceanSizeLxLz;
+		mWindDirection = FVector2f(WindDireciton);
+		mOceanSizeLxLz = FVector2f(OceanSizeLxLz);
 		mWaveAmplitude = WaveAmplitude;
 		mWindScale = WindScale;
 		mWindSpeed = WindSpeed;

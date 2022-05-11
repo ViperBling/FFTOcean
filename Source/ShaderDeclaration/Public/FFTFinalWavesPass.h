@@ -7,7 +7,7 @@ public:
 	float mChoppyness;
 	float mWorldTimeSeconds;
 	float mNormalStrength;
-	FVector2D mOceanSizeLxLz;
+	FVector2f mOceanSizeLxLz;
 
 	FTextureRHIRef OutDisplacement;
 	FUnorderedAccessViewRHIRef OutDisplacementUAV;
@@ -36,7 +36,7 @@ public:
 		mChoppyness = Choppyness;
 		mWorldTimeSeconds = Time;
 		mNormalStrength = NormalStrength;
-		mOceanSizeLxLz = OceanSize_LxLz;
+		mOceanSizeLxLz = FVector2f(OceanSize_LxLz);
 
 		FRHIResourceCreateInfo CreateInfo(TEXT("FinalWaveCreateInfo"));
 		

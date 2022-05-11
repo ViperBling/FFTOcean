@@ -24,14 +24,14 @@ SamplerState LinearSampler;
 
 float SampleTex(in Texture2D<float4> Tex, in float2 uv)
 {
-	return Tex.SampleLevel(LinearSampler, uv, 0).x / Pow2(Size);
+	return Tex.SampleLevel(LinearSampler, uv, 0).x / (Size * Size);
 }
 
 float4 GetFoldAndTurbulence(in float2 texCoord)
 {
-	float Dxz = InputDxz.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
-	float Dxx = InputDxx.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
-	float Dzz = InputDzz.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	float Dxz = InputDxz.SampleLevel(LinearSampler, texCoord, 0) / (Size * Size);
+	float Dxx = InputDxx.SampleLevel(LinearSampler, texCoord, 0) / (Size * Size);
+	float Dzz = InputDzz.SampleLevel(LinearSampler, texCoord, 0) / (Size * Size);
 	float Lambda = 4.;
 	//float Jacobian = (1 + Choppyness * Dxx) * (1 + Choppyness * Dzz) - Choppyness * Choppyness * Pow2(Dxz);
 	float Jacobian = (1 + Lambda * Dxx) * (1 + Lambda * Dzz) - Lambda * Lambda * Dxz * Dxz;
@@ -62,15 +62,15 @@ void MainCS(uint3 ThreadID : SV_DispatchThreadID)
 	float3 N;
 	const float texelSize = 1.0f / Size;
 	
-	float r = InputDy.SampleLevel(LinearSampler, texCoord + float2(texelSize, 0), 0) / Pow2(Size);
-	float l = InputDy.SampleLevel(LinearSampler, texCoord + float2(-texelSize, 0), 0) / Pow2(Size);
-	float t = InputDy.SampleLevel(LinearSampler, texCoord + float2(0, -texelSize), 0) / Pow2(Size);
-	float b = InputDy.SampleLevel(LinearSampler, texCoord + float2(0, texelSize), 0) / Pow2(Size);
+	float r = InputDy.SampleLevel(LinearSampler, texCoord + float2(texelSize, 0), 0) / (Size * Size);
+	float l = InputDy.SampleLevel(LinearSampler, texCoord + float2(-texelSize, 0), 0) / (Size * Size);
+	float t = InputDy.SampleLevel(LinearSampler, texCoord + float2(0, -texelSize), 0) / (Size * Size);
+	float b = InputDy.SampleLevel(LinearSampler, texCoord + float2(0, texelSize), 0) / (Size * Size);
 	
 	float dx = r - l;
 	float dy = b - t;
 	
-	// float2 Nxy = float2(-dx, -dy);
+	// float2 Nxy = float2(dx, dy);
 	// float Nz = sqrt(saturate(1.0 - dot(Nxy, Nxy)));
 	
 	N =  normalize(float3(-dx, dy, 1.0f / NormalStrength));
@@ -80,23 +80,23 @@ void MainCS(uint3 ThreadID : SV_DispatchThreadID)
 	// float Dy = InputDy.Load(int3(pos, 0)) / Pow2(Size);
 	// float Dz = InputDz.Load(int3(pos, 0)) / Pow2(Size);
 	
-	float Dx = InputDx.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
-	float Dy = InputDy.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
-	float Dz = InputDz.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	// float Dx = InputDx.SampleLevel(LinearSampler, texCoord, 0) / (Size * Size);
+	// float Dy = InputDy.SampleLevel(LinearSampler, texCoord, 0) / (Size * Size);
+	// float Dz = InputDz.SampleLevel(LinearSampler, texCoord, 0) / (Size * Size);
 	
 	// float DHxKt = InputDHxKt.Load(int3(pos, 0)) / (Size * Size);
 	// float DHzKt = InputDHzKt.Load(int3(pos, 0)) / (Size * Size);
 
-	// float DHxKt = InputDHxKt.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
-	// float DHzKt = InputDHzKt.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	// float DHxKt = InputDHxKt.SampleLevel(LinearSampler, texCoord, 0) / (Size * Size);
+	// float DHzKt = InputDHzKt.SampleLevel(LinearSampler, texCoord, 0) / (Size * Size);
 	
-	// float Dxz = InputDxz.Load(int3(pos, 0)) / Pow2(Size);
-	// float Dxx = InputDxx.Load(int3(pos, 0)) / Pow2(Size);
-	// float Dzz = InputDzz.Load(int3(pos, 0)) / Pow2(Size);
-	//
-	// float Dxz = InputDxz.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
-	// float Dxx = InputDxx.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
-	// float Dzz = InputDzz.SampleLevel(LinearSampler, texCoord, 0) / Pow2(Size);
+	// float Dxz = InputDxz.Load(int3(pos, 0)) / (Size * Size);
+	// float Dxx = InputDxx.Load(int3(pos, 0)) / (Size * Size);
+	// float Dzz = InputDzz.Load(int3(pos, 0)) / (Size * Size);
+	
+	// float Dxz = InputDxz.SampleLevel(LinearSampler, texCoord, 0) / (Size * Size);
+	// float Dxx = InputDxx.SampleLevel(LinearSampler, texCoord, 0) / (Size * Size);
+	// float Dzz = InputDzz.SampleLevel(LinearSampler, texCoord, 0) / (Size * Size);
 	
 	// N = normalize(float3(-DHxKt, -DHzKt, 1.));
 	// float3 T = normalize(float3(0, Dxz, DHzKt));

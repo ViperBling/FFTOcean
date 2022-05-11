@@ -15,7 +15,7 @@ public:
 		SHADER_PARAMETER(float, Time)
 		SHADER_PARAMETER(float, Choppyness)
 		SHADER_PARAMETER(float, Size)
-		SHADER_PARAMETER(FVector2D, OceanSizeLxLz)
+		SHADER_PARAMETER(FVector2f, OceanSizeLxLz)
 		SHADER_PARAMETER_SRV(Texture2D<float4>, InputH0SRV)
 		SHADER_PARAMETER_UAV(RWTexture2D<float2>, OutSurfaceX)
 		SHADER_PARAMETER_UAV(RWTexture2D<float2>, OutSurfaceY)

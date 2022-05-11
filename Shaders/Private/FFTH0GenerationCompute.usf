@@ -45,8 +45,7 @@ float GetPhilipsSpectrum(in float2 k)
 		float KL2 = K2 * L * L;
 		float expTerm = A * exp(-1. / KL2);
 
-		// float Ph_k = (expTerm / K4) * (KoW * KoW);
-		float Ph_k = (expTerm / K4) * Pow2(KoW);
+		float Ph_k = (expTerm / K4) * (KoW * KoW);
 		if (KoW < 0.0f)
 		{
 			Ph_k *= WindScale;

@@ -85,11 +85,10 @@ public:
 	volatile bool bCachedParametersValid;
 
 	// auto called by render thread every tick()
-	void PostResolveSceneColor_RenderThread(FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext);
+	void PostResolveSceneColor_RenderThread(FRDGBuilder& RDGBuilder, const FSceneTextures& SceneTextures);
 
 private:
 	// This holds all datas that would need to be updated into FFT render thread.
-	UPROPERTY()
 	TMap<FString, FRenderFFTPassParams> FFTCachedDatas;
 
 	// Draw Render thread

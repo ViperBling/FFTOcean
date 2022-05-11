@@ -9,7 +9,7 @@ public:
 	float mSize;
 	float mChoppyness;
 	float mWorldTimeSeconds;
-	FVector2D mOceanSizeLxLz;
+	FVector2f mOceanSizeLxLz;
 
 	FTextureRHIRef OutSurfaceX;
 	FUnorderedAccessViewRHIRef OutSurfaceXUAV;
@@ -56,7 +56,7 @@ public:
 		
 		mSize = TextureSize;
 		mChoppyness = Choppyness;
-		mOceanSizeLxLz = OceanSizeLxLz;
+		mOceanSizeLxLz = FVector2f(OceanSizeLxLz);
 		mWorldTimeSeconds = Time;
 
 		FRHIResourceCreateInfo CreateInfo(TEXT("FrequencyCreateInfo"));

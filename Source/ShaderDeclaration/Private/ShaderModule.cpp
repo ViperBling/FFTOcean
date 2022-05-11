@@ -31,7 +31,7 @@ void FShaderDeclarationModule::StartupModule()
 void FShaderDeclarationModule::ShutdownModule()
 {
 	EndRendering();
-	 IModuleInterface::ShutdownModule();
+	IModuleInterface::ShutdownModule();
 }
 
 void FShaderDeclarationModule::BeginRendering()
@@ -108,8 +108,9 @@ void FShaderDeclarationModule::UpdateParameters(const FString& Key, FRenderFFTPa
 }
 
 void FShaderDeclarationModule::PostResolveSceneColor_RenderThread(
-	FRHICommandListImmediate& RHICmdList,
-	FSceneRenderTargets& SceneContext)
+	FRDGBuilder& RDGBuilder,
+	const FSceneTextures& SceneTextures
+	)
 {
 	if (!bCachedParametersValid) return;
 

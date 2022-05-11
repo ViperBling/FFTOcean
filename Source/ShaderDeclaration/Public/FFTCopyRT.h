@@ -27,7 +27,7 @@ class FShaderNormalParameters
 {
 public:
 	UTextureRenderTarget2D* RenderTarget = nullptr;
-	FVector2D mOceanSizeLxLz;
+	FVector2f mOceanSizeLxLz;
 	float mSize;
 	float mChoppyness;
 	float mNormalStrength;
@@ -36,7 +36,7 @@ public:
 	
 	FShaderNormalParameters(
 		UTextureRenderTarget2D* InRenderTarget,
-		FVector2D OceanSizeLxLz,
+		FVector2f OceanSizeLxLz,
 		float Size,
 		float Choppynes,
 		float NormalStrength)

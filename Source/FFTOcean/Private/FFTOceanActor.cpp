@@ -25,10 +25,6 @@ void AFFTOcean::BeginDestroy()
 	FShaderDeclarationModule::Get("ShaderDeclaration").EndRendering();
 }
 
-// bool AFFTOcean::ShouldTickIfViewportsOnly() const
-// {
-// 	return true;
-// }
 
 void AFFTOcean::Tick(float DeltaSeconds)
 {
@@ -40,19 +36,16 @@ void AFFTOcean::Tick(float DeltaSeconds)
 	[this](FRHICommandListImmediate& RHICmdList)
 	{
 		FRenderFFTPassParams FFTPassParams = FRenderFFTPassParams();
-
-		if (bIsGaussianInitialized)
-		{
-			FFTPassParams.H0Params = FShaderH0Pass(
-				GaussianNoiseSRV,
-				WindDirection,
-				OceanSizeLxLz,
-				WaveAmplitude,
-				WindScale,
-				WindSpeed,
-				RTSize
-			);
-		}
+		FFTPassParams.H0Params = FShaderH0Pass(
+			GaussianNoiseSRV,
+			WindDirection,
+			OceanSizeLxLz,
+			WaveAmplitude,
+			WindScale,
+			WindSpeed,
+			RTSize
+		);
+		
 		
 		
 		FFTPassParams.FrequencyParams = FShaderFrequencyParameters(
@@ -101,7 +94,6 @@ void AFFTOcean::Tick(float DeltaSeconds)
 			FShaderDeclarationModule::Get("ShaderDeclaration").UpdateParameters("Pass", FFTPassParams);
 		}
 		});
-	
 }
 
 static float GetGaussianRandomFloat()
@@ -117,34 +109,25 @@ static float GetGaussianRandomFloat()
 
 void AFFTOcean::ConstructGaussianNoise()
 {
-	ENQUEUE_RENDER_COMMAND(GaussianNoiseConstruct)(
-		[this](FRHICommandListImmediate& RHICmdList)
-		{
-			// GaussianNoise 随机生成 512x512 个像素点 对应顶点信息
-			uint32 resolution = RTSize * RTSize;
-			float rawData[resolution * 4];
-			// rawData.SetNumZeroed(resolution * 4);
-			for (uint32 i = 0; i < resolution * 4; i++)
-			{
-				rawData[i] = GetGaussianRandomFloat();
-			}
+	// GaussianNoise 随机生成 512x512 个像素点 对应顶点信息
+	uint32 resolution = RTSize * RTSize;
+	TArray<FVector4> rawData;
+	rawData.SetNumZeroed(resolution);
+	for (uint32 i = 0; i < resolution; i++)
+	{
+		rawData[i].X = GetGaussianRandomFloat();
+		rawData[i].Y = GetGaussianRandomFloat();
+		rawData[i].Z = GetGaussianRandomFloat();
+		rawData[i].W = GetGaussianRandomFloat();
+	}
 
-			FRHIResourceCreateInfo CreateInfo(TEXT("CreateGaussianNoise"));
-
-			GaussianNoiseRHI = RHICreateTexture2D(
-				RTSize, RTSize, PF_A32B32G32R32F, 1, 1, TexCreate_ShaderResource, CreateInfo);
-
-			FUpdateTextureRegion2D UpdateTextureRegion2D = FUpdateTextureRegion2D(0, 0, 0, 0, RTSize, RTSize);
-
-			RHICmdList.UpdateTexture2D(
-				GaussianNoiseRHI, 0, UpdateTextureRegion2D,
-				GPixelFormats[GaussianNoiseRHI->GetFormat()].BlockBytes * RTSize,
-				reinterpret_cast<uint8*>(rawData));
-			
-			GaussianNoiseSRV = RHICreateShaderResourceView(GaussianNoiseRHI, 0);
-
-			bIsGaussianInitialized = true;
-		});
+	GaussianNoise = UTexture2D::CreateTransient(RTSize, RTSize, PF_A32B32G32R32F);
+	GaussianNoise->UpdateResource();
+	FTexture2DMipMap& mip = GaussianNoise->GetPlatformData()->Mips[0];
+	void* data = mip.BulkData.Lock(LOCK_READ_WRITE);
+	FMemory::Memcpy(data, rawData.GetData(), resolution * 4 * sizeof(float));
+	mip.BulkData.Unlock();
+	GaussianNoise->UpdateResource();
 }
 
 void AFFTOcean::CopyGaussianNoiseTextureToResourceViewOnce()
@@ -156,7 +139,7 @@ void AFFTOcean::CopyGaussianNoiseTextureToResourceViewOnce()
 		ENQUEUE_RENDER_COMMAND(GaussianNoiseSRVCreationCommand)(
 			[this](FRHICommandListImmediate& RHICmdList)
 			{
-				FTexture2DRHIRef Tex2DRHIRef = ((GaussianNoise->Resource))->GetTexture2DRHI();
+				FTexture2DRHIRef Tex2DRHIRef = GaussianNoise->GetResource()->GetTexture2DRHI();
 				GaussianNoiseSRV = RHICreateShaderResourceView(Tex2DRHIRef, 0);
 			});
 		FlushRenderingCommands();

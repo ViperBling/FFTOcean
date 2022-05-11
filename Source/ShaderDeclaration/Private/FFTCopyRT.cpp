@@ -13,17 +13,17 @@ public:
 		TResourceArray<FFilterVertex, VERTEXBUFFER_ALIGNMENT> Vertices;
 		Vertices.SetNumUninitialized(6);
 
-		Vertices[0].Position = FVector4(1, 1, 0, 1);
-		Vertices[0].UV = FVector2D(1, 1);
+		Vertices[0].Position = FVector4f(1, 1, 0, 1);
+		Vertices[0].UV = FVector2f(1, 1);
 
-		Vertices[1].Position = FVector4(-1, 1, 0, 1);
-		Vertices[1].UV = FVector2D(0, 1);
+		Vertices[1].Position = FVector4f(-1, 1, 0, 1);
+		Vertices[1].UV = FVector2f(0, 1);
 
-		Vertices[2].Position = FVector4(1, -1, 0, 1);
-		Vertices[2].UV = FVector2D(1, 0);
+		Vertices[2].Position = FVector4f(1, -1, 0, 1);
+		Vertices[2].UV = FVector2f(1, 0);
 
-		Vertices[3].Position = FVector4(-1, -1, 0, 1);
-		Vertices[3].UV = FVector2D(0, 0);
+		Vertices[3].Position = FVector4f(-1, -1, 0, 1);
+		Vertices[3].UV = FVector2f(0, 0);
 
 		// Create vertex buffer. Fill buffer with initial data upon creation
 		FRHIResourceCreateInfo CreateInfo(TEXT("VertexBufferCreateInfo"), &Vertices);
@@ -56,6 +56,7 @@ public:
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
 		SHADER_PARAMETER_SRV(Texture2D, InputTexture)
+		SHADER_PARAMETER_SAMPLER(SamplerState, CopyRTSampler)
 		//SHADER_PARAMETER(FVector2D, TextureSize) // Metal doesn't support GetDimensions(), so we send in this data via our parameters. FFT 不考虑Metal
 	END_SHADER_PARAMETER_STRUCT()
 
@@ -101,6 +102,7 @@ void FCopyRT::DrawToRenderTarget_RenderThread(
 	// Setup the pixel shader
 	FCopyRTPS::FParameters PassParameters;
 	PassParameters.InputTexture = InputTextureRT;
+	PassParameters.CopyRTSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 	
 	SetShaderParameters(RHICmdList, PixelShader, PixelShader.GetPixelShader(), PassParameters);
 
@@ -148,7 +150,7 @@ public:
 		SHADER_PARAMETER_SRV(Texture2D, InputDxxKt)
 		SHADER_PARAMETER_SRV(Texture2D, InputDzzKt)
 		SHADER_PARAMETER_SAMPLER(SamplerState, LinearSampler)
-		SHADER_PARAMETER(FVector2D, OceanSizeLxLz)
+		SHADER_PARAMETER(FVector2f, OceanSizeLxLz)
 		SHADER_PARAMETER(float, Size)
 		SHADER_PARAMETER(float, Choppyness)
 		SHADER_PARAMETER(float, NormalStrength)
